@@ -4,12 +4,15 @@ from os.path import *
 import Tkinter
 import tkFileDialog
 from shutil import copyfile
+from shutil import rmtree
+import urllib
 from PIL import Image, ImageTk
 from googleapiclient.discovery import build
 
 dir_path = ''
 add_path = ''
 rem_path = ''
+tmp_path = ''
 files = []
 
 apikey = 'AIzaSyBQ5EGq99YoBhDgUq3Rzon8iC51O_M5TGM'
@@ -59,16 +62,16 @@ class MainFrame(Tkinter.Tk):
         self.grid()
 
         buttonAdd = Tkinter.Button(self, text=u"Add", command=self.ClickAdd)
-        buttonAdd.grid(column=1, row=0)
+        buttonAdd.grid(column=1, row=1)
         buttonRem = Tkinter.Button(self, text=u"Remove", command=self.ClickRem)
-        buttonRem.grid(column=1, row=1)
+        buttonRem.grid(column=1, row=2)
         self.labelText = Tkinter.StringVar()
         label = Tkinter.Label(self, textvariable=self.labelText, anchor="w", fg="white", bg="blue")
-        label.grid(column=0, row=0, sticky='EW')
+        label.grid(column=0, row=1, sticky='EW')
         self.labelText.set(files[0])
 
         self.gamename = files[0][:files[0].find('(')]
-        getImages(self.gamename, add_path)
+        getImages(self.gamename)
 
     def ClickAdd(self):
         dest = add_path
@@ -87,9 +90,7 @@ class MainFrame(Tkinter.Tk):
 
 
 def setPath(p):
-    global dir_path
-    global add_path
-    global rem_path
+    global dir_path, add_path, rem_path, tmp_path
     global files
 
     dir_path = p
@@ -99,14 +100,26 @@ def setPath(p):
     rem_path = dir_path + '/To remove'
     if not os.path.exists(rem_path):
         os.makedirs(rem_path)
+    tmp_path = dir_path + '/tmp'
+    os.makedirs(tmp_path)
     files = [f for f in listdir(dir_path) if isfile(join(dir_path, f))]
 
 
-def getImages(query, path):
-    query += 'snes'
-    print(query)
+def getImages(query):
+    global dir_path
+
+    print("query for " + query)
+    qquery = query + 'snes'
     service = build('customsearch', 'v1', developerKey=apikey)
-    res = service.cse().list(q=query, cx=searchengineid, searchType='image').execute()
+    res = service.cse().list(q=qquery, cx=searchengineid, searchType='image').execute()
+    cnt = 0
+    for item in res['items']:
+        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+        cnt += 1
+    res2 = service.cse().list(q=qquery, cx=searchengineid, searchType='image', start=res['queries']['nextPage'][0]['startIndex']).execute()
+    for item in res2['items']:
+        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+        cnt += 1
 
 
 #MAIN
@@ -116,3 +129,5 @@ app.mainloop()
 app2 = MainFrame(None)
 app2.title('sneSort')
 app2.mainloop()
+print('removing tmp files...')
+rmtree(tmp_path)
