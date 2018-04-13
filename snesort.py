@@ -36,6 +36,8 @@ class SettingFrame(Tkinter.Tk):
         txtFolder = Tkinter.Entry(self, textvariable=self.usrpath, width=50)
         txtFolder.grid(column=0, row=1)
 
+        self.usrpath.set('C:/Users/Chat/Desktop/SNES ROMS')
+
         btnSelect = Tkinter.Button(self, text="Select folder", command=self.SelectFolder)
         btnSelect.grid(column=1, row=1)
         btnOK = Tkinter.Button(self, text="OK", command=self.ValidSettings)
@@ -57,6 +59,8 @@ class MainFrame(Tkinter.Tk):
         Tkinter.Tk.__init__(self, parent)
         self.parent = parent
         self.initialize()
+        self.gamename = ''
+        self.btnlist = []
 
     def initialize(self):
         self.grid()
@@ -73,21 +77,29 @@ class MainFrame(Tkinter.Tk):
         self.gamename = files[0][:files[0].find('(')]
         getImages(self.gamename)
 
-        self.btnimages = []
-
-        for i in range(20):
-            pic = Tkinter.PhotoImage(file=dir_path + '/tmp/' + self.gamename + str(i) + '.gif')
-            self.btnimages += Tkinter.Button(self, text='', width=40,
-                                             height=40, image=pic, command=self.SelectedImage(i))
-            i.grid(column=i % 5, row=i / 5)
+        wid = 200
+        hei = 160
+        for i in range(30):
+            try:
+                pic = Image.open(tmp_path + '/' + self.gamename + str(i) + '.png')
+                pic = pic.resize((wid, hei), Image.NEAREST)
+                tkpic = ImageTk.PhotoImage(pic)
+                bt = Tkinter.Button(self, image=tkpic, width=wid,
+                                                 height=hei,  command=self.SelectedImage)
+                bt.image = tkpic
+                bt.grid(column=1 + i % 6, row=3 + i / 4)
+            except IOError:
+                print('image number ' + str(i) + ' is invalid')
 
     def ClickAdd(self):
         dest = add_path
         self.doDefaultFileManage(dest)
+        getImages(self.gamename)
 
     def ClickRem(self):
         dest = rem_path
         self.doDefaultFileManage(dest)
+        getImages(self.gamename)
 
     def SelectedImage(self, cnt):
         pass
@@ -98,6 +110,8 @@ class MainFrame(Tkinter.Tk):
         files.remove(files[0])
         self.labelText.set(files[0])
         self.gamename = files[0][:files[0].find('(')]
+        rmtree(tmp_path)
+        os.makedirs(tmp_path)
 
 
 def setPath(p):
@@ -119,17 +133,22 @@ def setPath(p):
 def getImages(query):
     global dir_path
 
-    print("query for " + query)
+    print("query for " + '"' + query + '"')
     qquery = query + 'snes'
     service = build('customsearch', 'v1', developerKey=apikey)
     res = service.cse().list(q=qquery, cx=searchengineid, searchType='image').execute()
     cnt = 0
     for item in res['items']:
-        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.gif')
+        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
         cnt += 1
     res2 = service.cse().list(q=qquery, cx=searchengineid, searchType='image', start=res['queries']['nextPage'][0]['startIndex']).execute()
     for item in res2['items']:
-        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.gif')
+        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+        cnt += 1
+    res3 = service.cse().list(q=qquery, cx=searchengineid, searchType='image',
+                              start=res2['queries']['nextPage'][0]['startIndex']).execute()
+    for item in res3['items']:
+        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
         cnt += 1
 
 
