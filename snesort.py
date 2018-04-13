@@ -73,6 +73,14 @@ class MainFrame(Tkinter.Tk):
         self.gamename = files[0][:files[0].find('(')]
         getImages(self.gamename)
 
+        self.btnimages = []
+
+        for i in range(20):
+            pic = Tkinter.PhotoImage(file=dir_path + '/tmp/' + self.gamename + str(i) + '.gif')
+            self.btnimages += Tkinter.Button(self, text='', width=40,
+                                             height=40, image=pic, command=self.SelectedImage(i))
+            i.grid(column=i % 5, row=i / 5)
+
     def ClickAdd(self):
         dest = add_path
         self.doDefaultFileManage(dest)
@@ -80,6 +88,9 @@ class MainFrame(Tkinter.Tk):
     def ClickRem(self):
         dest = rem_path
         self.doDefaultFileManage(dest)
+
+    def SelectedImage(self, cnt):
+        pass
 
     def doDefaultFileManage(self, dest):
         copyfile(dir_path + '/' + files[0], dest + '/' + files[0])
@@ -114,11 +125,11 @@ def getImages(query):
     res = service.cse().list(q=qquery, cx=searchengineid, searchType='image').execute()
     cnt = 0
     for item in res['items']:
-        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.gif')
         cnt += 1
     res2 = service.cse().list(q=qquery, cx=searchengineid, searchType='image', start=res['queries']['nextPage'][0]['startIndex']).execute()
     for item in res2['items']:
-        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.gif')
         cnt += 1
 
 
