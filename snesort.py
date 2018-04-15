@@ -55,63 +55,103 @@ class SettingFrame(Tkinter.Tk):
 class MainFrame(Tkinter.Tk):
     global files
 
-    def __init__(self,parent):
+    def __init__(self, parent):
         Tkinter.Tk.__init__(self, parent)
         self.parent = parent
         self.initialize()
-        self.gamename = ''
-        self.btnlist = []
 
     def initialize(self):
         self.grid()
 
-        buttonAdd = Tkinter.Button(self, text=u"Add", command=self.ClickAdd)
-        buttonAdd.grid(column=1, row=1)
-        buttonRem = Tkinter.Button(self, text=u"Remove", command=self.ClickRem)
-        buttonRem.grid(column=1, row=2)
+        #Size of images/Buttons
+        self.btwid = 200
+        self.bthei = 160
+
+        self.gamename = ''
+        self.btnlist = []
+        self.imgid = 0
+        self.imgselected = False
+
         self.labelText = Tkinter.StringVar()
         label = Tkinter.Label(self, textvariable=self.labelText, anchor="w", fg="white", bg="blue")
-        label.grid(column=0, row=1, sticky='EW')
+        label.grid(column=0, row=0, sticky='EW')
         self.labelText.set(files[0])
+        protip = Tkinter.StringVar()
+        label = Tkinter.Label(self, textvariable=protip, anchor="w", fg="white", bg="blue")
+        label.grid(column=0, row=1, sticky='EW')
+        protip.set("Click on an image to save it as a cover when adding")
+        buttonAdd = Tkinter.Button(self, text=u"Add", command=self.ClickAdd)
+        buttonAdd.grid(column=1, row=0)
+        buttonRem = Tkinter.Button(self, text=u"Remove", command=self.ClickRem)
+        buttonRem.grid(column=2, row=0)
 
         self.gamename = files[0][:files[0].find('(')]
         getImages(self.gamename)
 
-        wid = 200
-        hei = 160
-        for i in range(30):
+        for i in range(36):
             try:
                 pic = Image.open(tmp_path + '/' + self.gamename + str(i) + '.png')
-                pic = pic.resize((wid, hei), Image.NEAREST)
+                pic = pic.resize((self.btwid, self.bthei), Image.NEAREST)
                 tkpic = ImageTk.PhotoImage(pic)
-                bt = Tkinter.Button(self, image=tkpic, width=wid,
-                                                 height=hei,  command=self.SelectedImage)
-                bt.image = tkpic
-                bt.grid(column=1 + i % 6, row=3 + i / 4)
             except IOError:
                 print('image number ' + str(i) + ' is invalid')
+            finally:
+                bt = Tkinter.Button(self, image=tkpic, width=self.btwid,
+                                    height=self.bthei, command=lambda cnt=i: self.SelectedImage(cnt))
+                bt.grid(column=3 + (i % 5), row=i % 6)
+                self.btnlist.append(bt)
+                bt.image = tkpic
+                bt.id = i
 
     def ClickAdd(self):
         dest = add_path
-        self.doDefaultFileManage(dest)
+        self.sendFileToDirAndMove(dest)
+        self.saveImage()
         getImages(self.gamename)
+        self.changeButtonsForNewImages()
 
     def ClickRem(self):
         dest = rem_path
-        self.doDefaultFileManage(dest)
+        self.sendFileToDirAndMove(dest)
         getImages(self.gamename)
+        self.changeButtonsForNewImages()
 
     def SelectedImage(self, cnt):
-        pass
+        if self.imgselected is True:
+            self.btnlist[self.imgid].config(bg='#40E0D0')
+        else:
+            self.imgselected = True
+        self.imgid = self.btnlist[cnt].id
+        self.btnlist[cnt].config(bg='red')
 
-    def doDefaultFileManage(self, dest):
+
+    def sendFileToDirAndMove(self, dest):
+        #Copy file to adding or remove folder
         copyfile(dir_path + '/' + files[0], dest + '/' + files[0])
         remove(dir_path + '/' + files[0])
+        #Get next file
         files.remove(files[0])
         self.labelText.set(files[0])
         self.gamename = files[0][:files[0].find('(')]
-        rmtree(tmp_path)
-        os.makedirs(tmp_path)
+
+    def changeButtonsForNewImages(self):
+        for i in range(36):
+            try:
+                pic = Image.open(tmp_path + '/' + self.gamename + str(i) + '.png')
+                pic = pic.resize((self.btwid, self.bthei), Image.NEAREST)
+                tkpic = ImageTk.PhotoImage(pic)
+                self.btnlist[i].config(image=tkpic)
+            except IOError:
+                print('image number ' + str(i) + ' is invalid')
+                self.btnlist[i].config(text='Invalid image', image=None)
+            finally:
+                self.imgselected = False
+
+    def saveImage(self):
+        print("img : " + tmp_path + '/' + self.gamename + str(self.imgid) + '.png' + " and p " + dir_path + '/' + self.gamename + '.png')
+        copyfile(tmp_path + '/' + self.gamename + str(self.imgid) + '.png',
+                 dir_path + '/' + self.gamename + '.png')
+
 
 
 def setPath(p):
@@ -126,30 +166,42 @@ def setPath(p):
     if not os.path.exists(rem_path):
         os.makedirs(rem_path)
     tmp_path = dir_path + '/tmp'
-    os.makedirs(tmp_path)
     files = [f for f in listdir(dir_path) if isfile(join(dir_path, f))]
 
 
 def getImages(query):
     global dir_path
 
+    if os.path.exists(tmp_path):
+        rmtree(tmp_path)
+    os.makedirs(tmp_path)
+
     print("query for " + '"' + query + '"')
     qquery = query + 'snes'
-    service = build('customsearch', 'v1', developerKey=apikey)
-    res = service.cse().list(q=qquery, cx=searchengineid, searchType='image').execute()
-    cnt = 0
-    for item in res['items']:
-        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
-        cnt += 1
-    res2 = service.cse().list(q=qquery, cx=searchengineid, searchType='image', start=res['queries']['nextPage'][0]['startIndex']).execute()
-    for item in res2['items']:
-        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
-        cnt += 1
-    res3 = service.cse().list(q=qquery, cx=searchengineid, searchType='image',
-                              start=res2['queries']['nextPage'][0]['startIndex']).execute()
-    for item in res3['items']:
-        urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
-        cnt += 1
+    try:
+        service = build('customsearch', 'v1', developerKey=apikey)
+        res = service.cse().list(q=qquery, cx=searchengineid, searchType='image').execute()
+        cnt = 0
+        for item in res['items']:
+            urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+            cnt += 1
+        res2 = service.cse().list(q=qquery, cx=searchengineid, searchType='image', start=res['queries']['nextPage'][0]['startIndex']).execute()
+        for item in res2['items']:
+            urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+            cnt += 1
+        res3 = service.cse().list(q=qquery, cx=searchengineid, searchType='image',
+                                  start=res2['queries']['nextPage'][0]['startIndex']).execute()
+        for item in res3['items']:
+            urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+            cnt += 1
+
+        res4 = service.cse().list(q=qquery, cx=searchengineid, searchType='image',
+                                  start=res3['queries']['nextPage'][0]['startIndex'], num=6).execute()
+        for item in res4['items']:
+            urllib.urlretrieve(item['link'], tmp_path + '/' + query + str(cnt) + '.png')
+            cnt += 1
+    except IOError:
+        print('Invalid URL')
 
 
 #MAIN
